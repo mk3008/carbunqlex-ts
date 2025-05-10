@@ -37,7 +37,7 @@ test('common table with MATERIALIZED', () => {
     const sql = formatter.format(commonTable);
 
     // Assert
-    expect(sql).toEqual(`"expensive_calc" materialized as (select "user_id", count(*) as "count" from "orders" group by "user_id")`);
+    expect(sql).toEqual(`"expensive_calc" as materialized (select "user_id", count(*) as "count" from "orders" group by "user_id")`);
 });
 
 test('common table with NOT MATERIALIZED', () => {
@@ -49,7 +49,7 @@ test('common table with NOT MATERIALIZED', () => {
     const sql = formatter.format(commonTable);
 
     // Assert
-    expect(sql).toEqual(`"summary" not materialized as (select "department", avg("salary") from "employees" group by "department")`);
+    expect(sql).toEqual(`"summary" as not materialized (select "department", avg("salary") from "employees" group by "department")`);
 });
 
 test('common table with complex query', () => {

@@ -205,7 +205,7 @@ test('from with join using syntax', () => {
     const sql = formatter.format(clause);
 
     // Assert
-    expect(sql).toEqual(`from "users" join "orders" using ("id")`);
+    expect(sql).toEqual(`from "users" join "orders" using("id")`);
 });
 
 test('from with multiple columns in using clause', () => {
@@ -217,7 +217,7 @@ test('from with multiple columns in using clause', () => {
     const sql = formatter.format(clause);
 
     // Assert
-    expect(sql).toEqual(`from "users" join "orders" using ("user_id", "order_date")`);
+    expect(sql).toEqual(`from "users" join "orders" using("user_id", "order_date")`);
 });
 
 test('from with left join lateral', () => {

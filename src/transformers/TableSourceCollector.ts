@@ -113,11 +113,12 @@ export class TableSourceCollector implements SqlComponentVisitor<void> {
      * Gets a unique identifier for a table source
      */
     private getTableIdentifier(source: TableSource): string {
-        let identifier = source.table.name;
-        if (source.namespaces && source.namespaces.length > 0) {
-            identifier = source.namespaces.map(ns => ns.name).join('.') + '.' + identifier;
+        // Use QualifiedName for identifier (dot-joined string)
+        if (source.qualifiedName.namespaces && source.qualifiedName.namespaces.length > 0) {
+            return source.qualifiedName.namespaces.map(ns => ns.name).join('.') + '.' + (source.qualifiedName.name instanceof RawString ? source.qualifiedName.name.value : source.qualifiedName.name.name);
+        } else {
+            return source.qualifiedName.name instanceof RawString ? source.qualifiedName.name.value : source.qualifiedName.name.name;
         }
-        return identifier;
     }
 
     public collect(query: SqlComponent): TableSource[] {
@@ -186,6 +187,7 @@ export class TableSourceCollector implements SqlComponentVisitor<void> {
 
         // Add CTE names to the set
         for (const cte of commonTables) {
+            // aliasExpression.table is TableSource, so use .table getter (IdentifierString)
             this.cteNames.add(cte.aliasExpression.table.name);
         }
     }
@@ -198,8 +200,8 @@ export class TableSourceCollector implements SqlComponentVisitor<void> {
 
         // If in full scan mode, visit all other clauses too
         if (!this.selectableOnly) {
-            if (query.WithClause) {
-                query.WithClause.accept(this);
+            if (query.withClause) {
+                query.withClause.accept(this);
             }
 
             if (query.whereClause) {
@@ -218,8 +220,8 @@ export class TableSourceCollector implements SqlComponentVisitor<void> {
                 query.orderByClause.accept(this);
             }
 
-            if (query.windowsClause) {
-                for (const win of query.windowsClause.windows) {
+            if (query.windowClause) {
+                for (const win of query.windowClause.windows) {
                     win.accept(this);
                 }
             }

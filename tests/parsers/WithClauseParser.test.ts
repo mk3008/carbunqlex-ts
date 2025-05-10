@@ -68,5 +68,5 @@ test('with clause with materialized CTEs', () => {
     const sql = formatter.format(withClause);
 
     // Assert
-    expect(sql).toEqual(`with "sales_summary" materialized as (select "customer_id", sum("amount") as "total" from "sales" group by "customer_id"), "customer_data" not materialized as (select "c".*, "s"."total" from "customers" as "c" join "sales_summary" as "s" on "c"."id" = "s"."customer_id")`);
+    expect(sql).toEqual(`with "sales_summary" as materialized (select "customer_id", sum("amount") as "total" from "sales" group by "customer_id"), "customer_data" as not materialized (select "c".*, "s"."total" from "customers" as "c" join "sales_summary" as "s" on "c"."id" = "s"."customer_id")`);
 });

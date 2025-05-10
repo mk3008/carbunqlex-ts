@@ -13,7 +13,7 @@ test('empty window frame', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`()`);
+    expect(sql).toEqual(``);
     expect(expression.partition).toBeNull();
     expect(expression.order).toBeNull();
 });
@@ -27,7 +27,7 @@ test('window frame with partition by', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`(partition by "department_id")`);
+    expect(sql).toEqual(`partition by "department_id"`);
     expect(expression.partition).not.toBeNull();
     expect(expression.order).toBeNull();
 });
@@ -41,7 +41,7 @@ test('window frame with order by', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`(order by "salary" desc)`);
+    expect(sql).toEqual(`order by "salary" desc`);
     expect(expression.partition).toBeNull();
     expect(expression.order).not.toBeNull();
 });
@@ -55,7 +55,7 @@ test('window frame with partition by and order by', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`(partition by "department_id" order by "salary" desc)`);
+    expect(sql).toEqual(`partition by "department_id" order by "salary" desc`);
     expect(expression.partition).not.toBeNull();
     expect(expression.order).not.toBeNull();
 });
@@ -69,7 +69,7 @@ test('window frame with multiple partition by columns', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`(partition by "department_id", "location_id")`);
+    expect(sql).toEqual(`partition by "department_id", "location_id"`);
 });
 
 test('window frame with multiple order by columns', () => {
@@ -81,7 +81,7 @@ test('window frame with multiple order by columns', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`(order by "department_id", "salary" desc)`);
+    expect(sql).toEqual(`order by "department_id", "salary" desc`);
 });
 
 test('window frame with expression in partition by', () => {
@@ -93,7 +93,7 @@ test('window frame with expression in partition by', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`(partition by extract(year from "hire_date"))`);
+    expect(sql).toEqual(`partition by extract(year from "hire_date")`);
 });
 
 test('error on missing opening parenthesis', () => {
@@ -130,7 +130,7 @@ test('window frame with rows specification', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`(rows current row)`);
+    expect(sql).toEqual(`rows current row`);
     expect(expression.frameSpec).not.toBeNull();
 });
 
@@ -143,7 +143,7 @@ test('window frame with range specification', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`(range unbounded preceding)`);
+    expect(sql).toEqual(`range unbounded preceding`);
     expect(expression.frameSpec).not.toBeNull();
 });
 
@@ -156,7 +156,7 @@ test('window frame with groups specification', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`(groups 3 preceding)`);
+    expect(sql).toEqual(`groups 3 preceding`);
     expect(expression.frameSpec).not.toBeNull();
 });
 
@@ -169,7 +169,7 @@ test('window frame with rows between specification', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`(rows between unbounded preceding and current row)`);
+    expect(sql).toEqual(`rows between unbounded preceding and current row`);
     expect(expression.frameSpec).not.toBeNull();
 });
 
@@ -182,7 +182,7 @@ test('window frame with range between specification', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`(range between 3 preceding and 3 following)`);
+    expect(sql).toEqual(`range between 3 preceding and 3 following`);
     expect(expression.frameSpec).not.toBeNull();
 });
 
@@ -195,7 +195,7 @@ test('window frame with complete window specification', () => {
     const sql = formatter.format(expression);
 
     // Assert
-    expect(sql).toEqual(`(partition by "department_id" order by "salary" desc rows between unbounded preceding and current row)`);
+    expect(sql).toEqual(`partition by "department_id" order by "salary" desc rows between unbounded preceding and current row`);
     expect(expression.partition).not.toBeNull();
     expect(expression.order).not.toBeNull();
     expect(expression.frameSpec).not.toBeNull();

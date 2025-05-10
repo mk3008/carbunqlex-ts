@@ -1,7 +1,8 @@
 // --- FETCH句のテストケースは下のtest.each配列に追加するよ！ ---
 import { describe, test, expect } from 'vitest';
 import { SelectQueryParser } from '../../src/parsers/SelectQueryParser';
-import { Formatter, ParameterStyle } from '../../src/transformers/Formatter';
+import { Formatter } from '../../src/transformers/Formatter';
+import { ParameterStyle, PRESETS } from '../../src/parsers/SqlPrintTokenParser';
 
 const formatter = new Formatter();
 
@@ -357,7 +358,7 @@ describe('SelectQueryParser async', () => {
 
         // Act
         const query = await SelectQueryParser.parseAsync(sql);
-        const formatted = formatter.format(query, Formatter.PRESETS.mysql);
+        const formatted = formatter.format(query, PRESETS.mysql);
 
         // Assert
         expect(formatted).toBe(expected);

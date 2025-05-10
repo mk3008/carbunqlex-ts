@@ -1,5 +1,5 @@
 import { SqlComponent } from "./SqlComponent";
-import { ForClause, FromClause, GroupByClause, HavingClause, JoinClause, JoinOnClause, LimitClause, OrderByClause, SelectClause, SourceExpression, SubQuerySource, SourceAliasExpression, WhereClause, WindowsClause, WithClause, CommonTable, OffsetClause, FetchClause } from "./Clause";
+import { ForClause, FromClause, GroupByClause, HavingClause, JoinClause, JoinOnClause, LimitClause, OrderByClause, SelectClause, SourceExpression, SubQuerySource, SourceAliasExpression, WhereClause, WindowsClause as WindowClause, WithClause, CommonTable, OffsetClause, FetchClause } from "./Clause";
 import { BinaryExpression, ColumnReference, ValueComponent } from "./ValueComponent";
 import { ValueParser } from "../parsers/ValueParser";
 import { CTENormalizer } from "../transformers/CTENormalizer";
@@ -19,14 +19,14 @@ import { ParameterHelper } from "../utils/ParameterHelper";
  */
 export class SimpleSelectQuery extends SqlComponent implements SelectQuery {
     static kind = Symbol("SelectQuery");
-    WithClause: WithClause | null;
+    withClause: WithClause | null;
     selectClause: SelectClause;
     fromClause: FromClause | null;
     whereClause: WhereClause | null;
     groupByClause: GroupByClause | null;
     havingClause: HavingClause | null;
     orderByClause: OrderByClause | null;
-    windowsClause: WindowsClause | null;
+    windowClause: WindowClause | null;
     limitClause: LimitClause | null;
     offsetClause: OffsetClause | null;
     fetchClause: FetchClause | null;
@@ -39,7 +39,7 @@ export class SimpleSelectQuery extends SqlComponent implements SelectQuery {
         groupByClause?: GroupByClause | null,
         havingClause?: HavingClause | null,
         orderByClause?: OrderByClause | null,
-        windowsClause?: WindowsClause | null,
+        windowClause?: WindowClause | null,
         limitClause?: LimitClause | null,
         offsetClause?: OffsetClause | null,
         fetchClause?: FetchClause | null,
@@ -47,14 +47,14 @@ export class SimpleSelectQuery extends SqlComponent implements SelectQuery {
         withClause?: WithClause | null,
     }) {
         super();
-        this.WithClause = params.withClause ?? null;
+        this.withClause = params.withClause ?? null;
         this.selectClause = params.selectClause;
         this.fromClause = params.fromClause ?? null;
         this.whereClause = params.whereClause ?? null;
         this.groupByClause = params.groupByClause ?? null;
         this.havingClause = params.havingClause ?? null;
         this.orderByClause = params.orderByClause ?? null;
-        this.windowsClause = params.windowsClause ?? null;
+        this.windowClause = params.windowClause ?? null;
         this.limitClause = params.limitClause ?? null;
         this.offsetClause = params.offsetClause ?? null;
         this.fetchClause = params.fetchClause ?? null;
@@ -346,10 +346,10 @@ export class SimpleSelectQuery extends SqlComponent implements SelectQuery {
     public appendWith(commonTable: CommonTable | CommonTable[]): void {
         // Always treat as array for simplicity
         const tables = Array.isArray(commonTable) ? commonTable : [commonTable];
-        if (!this.WithClause) {
-            this.WithClause = new WithClause(false, tables);
+        if (!this.withClause) {
+            this.withClause = new WithClause(false, tables);
         } else {
-            this.WithClause.tables.push(...tables);
+            this.withClause.tables.push(...tables);
         }
 
         CTENormalizer.normalize(this);

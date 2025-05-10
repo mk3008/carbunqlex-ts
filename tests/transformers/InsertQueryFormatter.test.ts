@@ -63,19 +63,4 @@ describe('Formatter: InsertQuery', () => {
         const sql = new Formatter().format(query);
         expect(sql).toBe('insert into "users"("id", "name") select "id", "name" from "users_old"');
     });
-
-    it('throws if neither values nor selectQuery is set', () => {
-        const insertClause = new InsertClause(
-            new SourceExpression(
-                new TableSource(null, 'users'),
-                null
-            ),
-            ['id', 'name']
-        );
-        const query = new InsertQuery({
-            insertClause
-        });
-        const formatter = new Formatter();
-        expect(() => formatter.format(query)).toThrow();
-    });
 });

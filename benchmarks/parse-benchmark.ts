@@ -5,6 +5,7 @@ import { SelectQueryParser } from '../src/parsers/SelectQueryParser';
 import { format as sqlFormat } from 'sql-formatter';
 import { Parser as NodeSqlParser } from 'node-sql-parser';
 import { parse as cstParse } from 'sql-parser-cst';
+import { SqlFormatter } from '../src/transformers/SqlFormatter';
 
 // Set of SQL queries for benchmarking
 const queries = [
@@ -112,15 +113,24 @@ const queries = [
 
 // Create formatter instance (use if needed)
 const formatter = new Formatter();
+const sqlFormatter = new SqlFormatter();
+
 const nodeSqlParser = new NodeSqlParser();
 
 // Create benchmark suite
 const suite = new Benchmark.Suite;
 
-function parseQuery(sql: string) {
+function formatWithRawSql(sql: string) {
     return () => {
         const query = SelectQueryParser.parse(sql);
         query.accept(formatter);
+    };
+}
+
+function formatWithRawSql_SqlFormatter(sql: string) {
+    return () => {
+        const query = SelectQueryParser.parse(sql);
+        sqlFormatter.format(query);
     };
 }
 
@@ -130,14 +140,14 @@ function formatWithSqlFormatter(sql: string) {
     };
 }
 
-function parseWithNodeSqlParser(sql: string) {
+function formatWithNodeSqlParser(sql: string) {
     return () => {
         const ast = nodeSqlParser.astify(sql);
         nodeSqlParser.sqlify(ast);
     };
 }
 
-function parseWithSqlParserCst(sql: string) {
+function formatWithSqlParserCst(sql: string) {
     return () => {
         cstParse(sql, { dialect: 'postgresql' });
     };
@@ -165,11 +175,13 @@ function getSystemInfo() {
 // Add benchmarks for individual queries
 queries.forEach((query, index) => {
     // Set label using query name
-    suite.add(`rawsql-ts ${query.name}`, parseQuery(query.sql));
+    suite.add(`rawsql-ts ${query.name}`, formatWithRawSql(query.sql));
+    // Set label using query name
+    suite.add(`rawsql-ts[styled] ${query.name}`, formatWithRawSql_SqlFormatter(query.sql));
     // Add node-sql-parser benchmark for comparison
-    suite.add(`node-sql-parser ${query.name}`, parseWithNodeSqlParser(query.sql));
+    suite.add(`node-sql-parser ${query.name}`, formatWithNodeSqlParser(query.sql));
     // Add sql-parser-cst benchmark for comparison
-    suite.add(`sql-parser-cst ${query.name}`, parseWithSqlParserCst(query.sql));
+    suite.add(`sql-parser-cst ${query.name}`, formatWithSqlParserCst(query.sql));
     // Add sql-formatter benchmark for comparison
     suite.add(`sql-formatter ${query.name}`, formatWithSqlFormatter(query.sql));
 });

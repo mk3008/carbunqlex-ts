@@ -1,8 +1,9 @@
-import { JoinClause, SourceExpression, JoinOnClause, JoinUsingClause } from "../models/Clause";
+import { JoinClause, SourceExpression } from "../models/Clause";
 import { Lexeme, TokenType } from "../models/Lexeme";
 import { joinkeywordParser } from "../tokenReaders/CommandTokenReader";
 import { SourceExpressionParser } from "./SourceExpressionParser";
-import { ValueParser } from "./ValueParser";
+import { JoinOnClauseParser } from "./JoinOnClauseParser";
+import { JoinUsingClauseParser } from "./JoinUsingClauseParser";
 
 export class JoinClauseParser {
     public static tryParse(lexemes: Lexeme[], index: number): { value: JoinClause[]; newIndex: number } | null {
@@ -70,50 +71,24 @@ export class JoinClauseParser {
         const sourceResult = SourceExpressionParser.parseFromLexeme(lexemes, idx);
         idx = sourceResult.newIndex;
 
+
         if (idx < lexemes.length) {
-            let result = this.tryParseJoinOn(lexemes, idx, joinType, sourceResult.value, lateral);
-            if (result) {
-                return { value: result.value, newIndex: result.newIndex };
+            // JoinOnClauseParser
+            const onResult = JoinOnClauseParser.tryParse(lexemes, idx);
+            if (onResult) {
+                const joinClause = new JoinClause(joinType, sourceResult.value, onResult.value, lateral);
+                return { value: joinClause, newIndex: onResult.newIndex };
             }
-            result = this.tryParseJoinUsing(lexemes, idx, joinType, sourceResult.value, lateral);
-            if (result) {
-                return { value: result.value, newIndex: result.newIndex };
+            // JoinUsingClauseParser
+            const usingResult = JoinUsingClauseParser.tryParse(lexemes, idx);
+            if (usingResult) {
+                const joinClause = new JoinClause(joinType, sourceResult.value, usingResult.value, lateral);
+                return { value: joinClause, newIndex: usingResult.newIndex };
             }
         }
 
         // If we reach the end of the input, we can treat it as a natural join
         const joinClause = new JoinClause(joinType, sourceResult.value, null, lateral);
         return { value: joinClause, newIndex: idx };
-    }
-
-    private static tryParseJoinOn(lexemes: Lexeme[], index: number, joinType: string, source: SourceExpression, lateral: boolean): { value: JoinClause; newIndex: number } | null {
-        let idx = index;
-        if (idx < lexemes.length && lexemes[idx].value === 'on') {
-            idx++; // Skip 'on' keyword
-
-            // Parse the condition expression
-            const condition = ValueParser.parseFromLexeme(lexemes, idx);
-            idx = condition.newIndex;
-            const joinOn = new JoinOnClause(condition.value);
-            const joinClause = new JoinClause(joinType, source, joinOn, lateral);
-            return { value: joinClause, newIndex: condition.newIndex };
-        }
-        return null;
-    }
-
-    private static tryParseJoinUsing(lexemes: Lexeme[], index: number, joinType: string, source: SourceExpression, lateral: boolean): { value: JoinClause; newIndex: number } | null {
-        let idx = index;
-        if (idx < lexemes.length && lexemes[idx].value === 'using') {
-            idx++; // Skip 'using' keyword
-
-            // Parse the columns in parentheses
-            const result = ValueParser.parseArgument(TokenType.OpenParen, TokenType.CloseParen, lexemes, idx);
-            const usingColumns = result.value;
-            idx = result.newIndex;
-            const joinUsing = new JoinUsingClause(usingColumns);
-            const joinClause = new JoinClause(joinType, source, joinUsing, lateral);
-            return { value: joinClause, newIndex: result.newIndex };
-        }
-        return null;
     }
 }

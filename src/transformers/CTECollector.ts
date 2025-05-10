@@ -195,8 +195,8 @@ export class CTECollector implements SqlComponentVisitor<void> {
             query.orderByClause.accept(this);
         }
 
-        if (query.windowsClause) {
-            for (const win of query.windowsClause.windows) {
+        if (query.windowClause) {
+            for (const win of query.windowClause.windows) {
                 win.accept(this);
             }
         }
@@ -214,8 +214,8 @@ export class CTECollector implements SqlComponentVisitor<void> {
 
         // Finally check the WITH clause after all nested CTEs have been collected
         // This ensures inner CTEs are collected before outer CTEs
-        if (query.WithClause) {
-            query.WithClause.accept(this);
+        if (query.withClause) {
+            query.withClause.accept(this);
         }
 
     }

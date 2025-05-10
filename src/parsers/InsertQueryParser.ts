@@ -70,7 +70,7 @@ export class InsertQueryParser {
         const selectResult = SelectQueryParser.parseFromLexeme(lexemes, idx);
         if (withclause) {
             if (selectResult.value instanceof SimpleSelectQuery) {
-                selectResult.value.WithClause = withclause;
+                selectResult.value.withClause = withclause;
             } else {
                 throw new Error(`WITH clause is not supported in this context.`);
             }

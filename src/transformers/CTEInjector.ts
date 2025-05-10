@@ -58,11 +58,11 @@ export class CTEInjector {
      * @returns A new SimpleSelectQuery with the injected CTEs
      */
     private injectIntoSimpleQuery(query: SimpleSelectQuery, withClause: WithClause): SimpleSelectQuery {
-        if (query.WithClause) {
+        if (query.withClause) {
             throw new Error("The query already has a WITH clause. Please remove it before injecting new CTEs.");
         }
         // If the query doesn't have a WITH clause, set the new one
-        query.WithClause = withClause;
+        query.withClause = withClause;
         return query;
     }
 

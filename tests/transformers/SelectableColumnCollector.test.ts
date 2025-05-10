@@ -639,7 +639,7 @@ dat(line_id, name, unit_price, quantity, tax_rate) as (
     (3, 'banana', 233, 9, 0.07),
     (4, 'tea'   , 309, 7, 0.08),
     (5, 'coffee', 555, 9, 0.08),
-    (6, 'cola'  , 456, 2, 0.08)
+    (6, 'matcha'  , 456, 2, 0.08)
 ),
 detail as (
     select

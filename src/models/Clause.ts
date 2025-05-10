@@ -1,6 +1,6 @@
 import { SelectQuery, SimpleSelectQuery } from "./SelectQuery";
 import { SqlComponent } from "./SqlComponent";
-import { IdentifierString, RawString, TupleExpression, ValueComponent, WindowFrameExpression } from "./ValueComponent";
+import { IdentifierString, RawString, TupleExpression, ValueComponent, WindowFrameExpression, QualifiedName } from "./ValueComponent";
 
 export class SelectItem extends SqlComponent {
     static kind = Symbol("SelectItem");
@@ -143,62 +143,74 @@ export type SourceComponent = TableSource |
 
 export class TableSource extends SqlComponent {
     static kind = Symbol("TableSource");
-    namespaces: IdentifierString[] | null;
-    table: IdentifierString;
-    identifier: IdentifierString;
+    qualifiedName: QualifiedName;
+    /**
+     * For backward compatibility: returns the namespaces as IdentifierString[] | null (readonly)
+     */
+    get namespaces(): IdentifierString[] | null {
+        return this.qualifiedName.namespaces;
+    }
+    /**
+     * For backward compatibility: returns the table name as IdentifierString (readonly)
+     */
+    get table(): IdentifierString {
+        // If the name is RawString, convert to IdentifierString for compatibility
+        if (this.qualifiedName.name instanceof IdentifierString) {
+            return this.qualifiedName.name;
+        } else {
+            return new IdentifierString(this.qualifiedName.name.value);
+        }
+    }
+    /**
+     * For backward compatibility: returns the table name as IdentifierString (readonly)
+     */
+    get identifier(): IdentifierString {
+        return this.table;
+    }
     constructor(namespaces: string[] | IdentifierString[] | null, table: string | IdentifierString) {
         super();
-        // Accept both string[] and IdentifierString[] for namespaces
-        if (namespaces === null) {
-            this.namespaces = null;
-        } else if (typeof namespaces[0] === "string") {
-            this.namespaces = (namespaces as string[]).map(ns => new IdentifierString(ns));
-        } else {
-            this.namespaces = namespaces as IdentifierString[];
-        }
-        // Accept both string and IdentifierString for table
-        this.table = typeof table === "string" ? new IdentifierString(table) : table;
-        this.identifier = this.table;
+        const tbl = typeof table === "string" ? new IdentifierString(table) : table;
+        this.qualifiedName = new QualifiedName(namespaces, tbl);
     }
     public getSourceName(): string {
-        if (this.namespaces) {
-            return this.namespaces.map((namespace) => namespace.name).join(".") + "." + this.table.name;
+        if (this.qualifiedName.namespaces && this.qualifiedName.namespaces.length > 0) {
+            return this.qualifiedName.namespaces.map((namespace) => namespace.name).join(".") + "." + (this.qualifiedName.name instanceof RawString ? this.qualifiedName.name.value : this.qualifiedName.name.name);
         } else {
-            return this.table.name;
+            return this.qualifiedName.name instanceof RawString ? this.qualifiedName.name.value : this.qualifiedName.name.name;
         }
     }
 }
 
 export class FunctionSource extends SqlComponent {
     static kind = Symbol("FunctionSource");
-    namespaces: IdentifierString[] | null;
-    name: RawString;
+    qualifiedName: QualifiedName;
     argument: ValueComponent | null;
-    constructor(name: string | IdentifierString | { namespaces: string[] | IdentifierString[] | null, name: string | RawString }, argument: ValueComponent | null) {
+    constructor(
+        name: string | IdentifierString | { namespaces: string[] | IdentifierString[] | null, name: string | RawString | IdentifierString },
+        argument: ValueComponent | null
+    ) {
         super();
         if (typeof name === "object" && name !== null && "name" in name) {
             // Accepts { namespaces, name }
-            const nameObj = name as { namespaces: string[] | IdentifierString[] | null, name: string | IdentifierString };
-            if (nameObj.namespaces == null) {
-                this.namespaces = null;
-            } else if (typeof nameObj.namespaces[0] === "string") {
-                this.namespaces = (nameObj.namespaces as string[]).map(ns => new IdentifierString(ns));
-            } else {
-                this.namespaces = nameObj.namespaces as IdentifierString[];
-            }
-
-            if (typeof nameObj.name === "string") {
-                this.name = new RawString(nameObj.name);
-            } else if (nameObj.name && typeof nameObj.name.name === "string") {
-                this.name = new RawString(nameObj.name.name);
-            } else {
-                throw new Error("Invalid structure for nameObj.name");
-            }
+            const nameObj = name as { namespaces: string[] | IdentifierString[] | null, name: string | RawString | IdentifierString };
+            this.qualifiedName = new QualifiedName(nameObj.namespaces, nameObj.name);
         } else {
-            this.namespaces = null;
-            this.name = typeof name === "string" ? new RawString(name) : name;
+            this.qualifiedName = new QualifiedName(null, name as string | RawString | IdentifierString);
         }
         this.argument = argument;
+    }
+
+    /**
+     * For backward compatibility: returns the namespaces as IdentifierString[] | null (readonly)
+     */
+    get namespaces(): IdentifierString[] | null {
+        return this.qualifiedName.namespaces;
+    }
+    /**
+     * For backward compatibility: returns the function name as RawString | IdentifierString (readonly)
+     */
+    get name(): RawString | IdentifierString {
+        return this.qualifiedName.name;
     }
 }
 
@@ -388,6 +400,7 @@ export class FetchClause extends SqlComponent {
 
 export class FetchExpression extends SqlComponent {
     static kind = Symbol("FetchExpression");
+    // type count unit
     type: FetchType;
     count: ValueComponent;
     unit: FetchUnit | null;
@@ -439,7 +452,6 @@ export class ReturningClause extends SqlComponent {
     }
 }
 
-
 export class SetClause extends SqlComponent {
     static kind = Symbol("SetClause");
     items: SetClauseItem[];
@@ -456,42 +468,52 @@ export class SetClause extends SqlComponent {
  * Represents a single SET clause item in an UPDATE statement.
  * Now supports namespaces for fully qualified column names (e.g. schema.table.column).
  */
+/**
+ * Represents a single SET clause item in an UPDATE statement.
+ * Now supports namespaces for fully qualified column names (e.g. schema.table.column).
+ * Refactored to use QualifiedName for unified name/namespace handling.
+ */
 export class SetClauseItem extends SqlComponent {
     static kind = Symbol("SetClauseItem");
-    namespaces: IdentifierString[] | null;
-    column: IdentifierString;
+    qualifiedName: QualifiedName;
     value: ValueComponent;
     constructor(
         column: string | IdentifierString | { namespaces: string[] | IdentifierString[] | null, column: string | IdentifierString },
         value: ValueComponent
     ) {
         super();
+        // Accepts { namespaces, column } or just column
         if (typeof column === "object" && column !== null && "column" in column) {
-            // Accepts { namespaces, column }
             const colObj = column as { namespaces: string[] | IdentifierString[] | null, column: string | IdentifierString };
-            if (colObj.namespaces == null) {
-                this.namespaces = null;
-            } else if (typeof colObj.namespaces[0] === "string") {
-                this.namespaces = (colObj.namespaces as string[]).map(ns => new IdentifierString(ns));
-            } else {
-                this.namespaces = colObj.namespaces as IdentifierString[];
-            }
-            this.column = typeof colObj.column === "string" ? new IdentifierString(colObj.column) : colObj.column;
+            const col = typeof colObj.column === "string" ? new IdentifierString(colObj.column) : colObj.column;
+            this.qualifiedName = new QualifiedName(colObj.namespaces, col);
         } else {
-            this.namespaces = null;
-            this.column = typeof column === "string" ? new IdentifierString(column) : column as IdentifierString;
+            const col = typeof column === "string" ? new IdentifierString(column) : column as IdentifierString;
+            this.qualifiedName = new QualifiedName(null, col);
         }
         this.value = value;
+    }
+    /**
+     * For backward compatibility: returns the namespaces as IdentifierString[] | null (readonly)
+     */
+    get namespaces(): IdentifierString[] | null {
+        return this.qualifiedName.namespaces;
+    }
+    /**
+     * For backward compatibility: returns the column name as IdentifierString (readonly)
+     */
+    get column(): IdentifierString {
+        if (this.qualifiedName.name instanceof IdentifierString) {
+            return this.qualifiedName.name;
+        } else {
+            return new IdentifierString(this.qualifiedName.name.value);
+        }
     }
     /**
      * Returns the fully qualified column name as a string.
      */
     public getFullName(): string {
-        if (this.namespaces && this.namespaces.length > 0) {
-            return this.namespaces.map(ns => ns.name).join(".") + "." + this.column.name;
-        } else {
-            return this.column.name;
-        }
+        return this.qualifiedName.toString();
     }
 }
 
@@ -520,11 +542,11 @@ export class UpdateClause extends SqlComponent {
  */
 export class InsertClause extends SqlComponent {
     source: SourceExpression;
-    columns: string[];
+    columns: IdentifierString[];
 
     constructor(source: SourceExpression, columns: string[]) {
         super();
         this.source = source;
-        this.columns = columns;
+        this.columns = columns.map((col) => new IdentifierString(col));
     }
 }

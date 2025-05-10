@@ -42,27 +42,43 @@ export class ValueList extends SqlComponent {
 }
 
 export class ColumnReference extends SqlComponent {
-    static kind = Symbol("ColumnReferenceExpression");
-    // Use the string type instead of the RawString type because it has its own escaping process.
-    namespaces: IdentifierString[] | null;
-    // Use the string type instead of the RawString type because it has its own escaping process.
-    column: IdentifierString;
+    /**
+     * For backward compatibility: returns the namespaces as IdentifierString[] | null (readonly)
+     */
+    get namespaces(): IdentifierString[] | null {
+        return this.qualifiedName.namespaces;
+    }
+    /**
+     * For backward compatibility: returns the column name as IdentifierString (readonly)
+     */
+    get column(): IdentifierString {
+        // If the name is RawString, convert to IdentifierString for compatibility
+        if (this.qualifiedName.name instanceof IdentifierString) {
+            return this.qualifiedName.name;
+        } else {
+            return new IdentifierString(this.qualifiedName.name.value);
+        }
+    }
+    static kind = Symbol("ColumnReference");
+    qualifiedName: QualifiedName;
     constructor(namespaces: string | string[] | IdentifierString[] | null, column: string | IdentifierString) {
         super();
-        this.namespaces = toIdentifierStringArray(namespaces);
-        this.column = typeof column === "string" ? new IdentifierString(column) : column;
+        let nsArr: string[] | IdentifierString[] | null;
+        if (typeof namespaces === "string") {
+            nsArr = [namespaces];
+        } else {
+            nsArr = namespaces;
+        }
+        const col = typeof column === "string" ? new IdentifierString(column) : column;
+        this.qualifiedName = new QualifiedName(nsArr, col);
     }
 
     public toString(): string {
-        if (this.namespaces) {
-            return this.getNamespace() + "." + this.column.name;
-        } else {
-            return this.column.name;
-        }
+        return this.qualifiedName.toString();
     }
     public getNamespace(): string {
-        if (this.namespaces) {
-            return this.namespaces.map((namespace) => namespace.name).join(".");
+        if (this.qualifiedName.namespaces) {
+            return this.qualifiedName.namespaces.map((namespace) => namespace.name).join(".");
         } else {
             return '';
         }
@@ -71,21 +87,33 @@ export class ColumnReference extends SqlComponent {
 
 export class FunctionCall extends SqlComponent {
     static kind = Symbol("FunctionCall");
-    namespaces: IdentifierString[] | null;
-    name: RawString;
+    qualifiedName: QualifiedName;
     argument: ValueComponent | null;
     over: OverExpression | null;
+
     constructor(
         namespaces: string[] | IdentifierString[] | null,
-        name: string | RawString,
+        name: string | RawString | IdentifierString,
         argument: ValueComponent | null,
         over: OverExpression | null
     ) {
         super();
-        this.namespaces = toIdentifierStringArray(namespaces);
-        this.name = typeof name === "string" ? new RawString(name) : name;
+        this.qualifiedName = new QualifiedName(namespaces, name);
         this.argument = argument;
         this.over = over;
+    }
+
+    /**
+     * For backward compatibility: returns the namespaces as IdentifierString[] | null (readonly)
+     */
+    get namespaces(): IdentifierString[] | null {
+        return this.qualifiedName.namespaces;
+    }
+    /**
+     * For backward compatibility: returns the function name as RawString | IdentifierString (readonly)
+     */
+    get name(): RawString | IdentifierString {
+        return this.qualifiedName.name;
     }
 }
 
@@ -306,7 +334,7 @@ export class StringSpecifierExpression extends SqlComponent {
     static kind = Symbol("StringSpecifierExpression");
     // e.g. 'E', 'X', 'U&'
     specifier: RawString;
-    value: ValueComponent;
+    value: LiteralValue;
     constructor(specifier: string, value: string) {
         super();
         this.specifier = new RawString(specifier);
@@ -318,20 +346,31 @@ export class StringSpecifierExpression extends SqlComponent {
 
 export class TypeValue extends SqlComponent {
     static kind = Symbol("TypeValue");
-    namespaces: IdentifierString[] | null;
-    name: RawString;
+    qualifiedName: QualifiedName;
     argument: ValueComponent | null;
-    constructor(namespaces: string[] | IdentifierString[] | null, name: string | RawString, argument: ValueComponent | null = null) {
+    constructor(namespaces: string[] | IdentifierString[] | null, name: string | RawString | IdentifierString, argument: ValueComponent | null = null) {
         super();
-        this.namespaces = toIdentifierStringArray(namespaces);
-        this.name = typeof name === "string" ? new RawString(name) : name;
+        this.qualifiedName = new QualifiedName(namespaces, name);
         this.argument = argument;
     }
+    /**
+     * For backward compatibility: returns the namespaces as IdentifierString[] | null (readonly)
+     */
+    get namespaces(): IdentifierString[] | null {
+        return this.qualifiedName.namespaces;
+    }
+    /**
+     * For backward compatibility: returns the type name as RawString | IdentifierString (readonly)
+     */
+    get name(): RawString | IdentifierString {
+        return this.qualifiedName.name;
+    }
     public getTypeName(): string {
-        if (this.namespaces && this.namespaces.length > 0) {
-            return this.namespaces.map(ns => ns.name).join(".") + "." + this.name.value;
+        const nameValue = this.qualifiedName.name instanceof RawString ? this.qualifiedName.name.value : this.qualifiedName.name.name;
+        if (this.qualifiedName.namespaces && this.qualifiedName.namespaces.length > 0) {
+            return this.qualifiedName.namespaces.map(ns => ns.name).join(".") + "." + nameValue;
         } else {
-            return this.name.value;
+            return nameValue;
         }
     }
 }
@@ -356,4 +395,36 @@ function toIdentifierStringArray(input: string | string[] | IdentifierString[] |
         }
     }
     return null;
+}
+
+/**
+ * Represents a qualified name with optional namespaces (e.g. schema.table, db.schema.function)
+ */
+export class QualifiedName extends SqlComponent {
+    static kind = Symbol("QualifiedName");
+
+    /** List of namespaces (e.g. schema, database) */
+    namespaces: IdentifierString[] | null;
+    /** The actual name (e.g. table, function, type, column) */
+    name: RawString | IdentifierString;
+
+    constructor(namespaces: string[] | IdentifierString[] | null, name: string | RawString | IdentifierString) {
+        super();
+        this.namespaces = toIdentifierStringArray(namespaces);
+        if (typeof name === "string") {
+            this.name = new RawString(name);
+        } else {
+            this.name = name;
+        }
+    }
+
+    /** Returns the full qualified name as a string (dot-separated) */
+    toString(): string {
+        const nameValue = this.name instanceof RawString ? this.name.value : this.name.name;
+        if (this.namespaces && this.namespaces.length > 0) {
+            return this.namespaces.map(ns => ns.name).join(".") + "." + nameValue;
+        } else {
+            return nameValue;
+        }
+    }
 }
