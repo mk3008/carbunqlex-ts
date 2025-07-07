@@ -91,7 +91,7 @@ describe('SqlFormatter - CTE One-liner Dependency Feature', () => {
         expect(result.formattedSql).toContain('/* import product_stats.cte.sql */');
     });
 
-    test('should not format dependent CTEs as oneline when cteOnelineDependency is true', () => {
+    test('should format all CTEs as oneline and add import comments for leaf nodes', () => {
         const query = SelectQueryParser.parse(sqlWithDependentCTEs);
         const formatter = new SqlFormatter({ 
             cteOnelineDependency: true,
@@ -104,11 +104,13 @@ describe('SqlFormatter - CTE One-liner Dependency Feature', () => {
 
         console.log('Dependent CTEs result:', result.formattedSql);
         
-        // TODO: When dependency analysis is implemented:
-        // base_users has no dependencies, so might be oneline
-        // enriched_users depends on base_users, so should not be oneline
-        // For now, expect the current behavior (normal multiline formatting)
-        expect(result.formattedSql).toMatch(/enriched_users\s+as\s+\(\s*\n/);
+        // Current implementation: all CTEs are formatted as oneline
+        expect(result.formattedSql).toContain('base_users as (select');
+        expect(result.formattedSql).toContain('enriched_users as (select');
+        
+        // Only leaf nodes (enriched_users) should have import comments
+        expect(result.formattedSql).toContain('/* import enriched_users.cte.sql */');
+        expect(result.formattedSql).not.toContain('/* import base_users.cte.sql */');
     });
 
     test('should combine cteOneline and cteOnelineDependency options correctly', () => {

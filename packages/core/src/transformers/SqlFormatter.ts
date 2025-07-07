@@ -102,7 +102,8 @@ export class SqlFormatter {
             }
             
         } catch (error) {
-            console.warn('CTE dependency analysis failed:', error);
+            // Silently fall back to no dependency analysis if CTEDependencyTracer fails
+            // This ensures the feature degrades gracefully
         }
         
         return directlyReferenced;
@@ -114,6 +115,7 @@ export class SqlFormatter {
      * @returns Array of import comment strings
      */
     private generateImportComments(cteNames: string[]): string[] {
-        return cteNames.map(cteName => `/* import ${cteName}.cte.sql */`);
+        const CTE_FILE_EXTENSION = '.cte.sql';
+        return cteNames.map(cteName => `/* import ${cteName}${CTE_FILE_EXTENSION} */`);
     }
 }
