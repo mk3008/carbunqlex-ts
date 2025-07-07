@@ -3,6 +3,8 @@ import { SqlPrinter, CommaBreakStyle, AndBreakStyle } from './SqlPrinter';
 import { IndentCharOption, NewlineOption } from './LinePrinter'; // Import types for compatibility
 import { SelectQuery } from '../models/SelectQuery';
 import { SqlComponent } from '../models/SqlComponent';
+import { SimpleSelectQuery } from '../models/SimpleSelectQuery';
+import { CTEDependencyTracer } from './CTEDependencyTracer';
 
 // Define valid preset names as a union type
 export const VALID_PRESETS = ['mysql', 'postgres', 'sqlserver', 'sqlite'] as const;
@@ -46,7 +48,15 @@ export class SqlFormatter {
         };
 
         this.parser = new SqlPrintTokenParser(parserOptions);
-        this.printer = new SqlPrinter(options);
+        
+        // Calculate CTE oneline set if dependency-based formatting is enabled
+        let cteOnelineSet: Set<string> | undefined;
+        if (options.cteOnelineDependency) {
+            // This will be computed per-query in the format method
+            cteOnelineSet = new Set();
+        }
+        
+        this.printer = new SqlPrinter({ ...options, cteOnelineSet });
     }    /**
      * Formats a SQL query string with the given parameters.
      * @param sqlText The SQL query string to format.
@@ -55,8 +65,55 @@ export class SqlFormatter {
      */
     format(sql: SqlComponent): { formattedSql: string; params: any[] | Record<string, any> } {
         const { token, params } = this.parser.parse(sql);
+        
+        // If dependency-based CTE formatting is enabled, analyze the query
+        if (this.printer.cteOnelineDependency && sql instanceof SimpleSelectQuery) {
+            const directlyReferencedCtes = this.findDirectlyReferencedCtes(sql);
+            const importComments = this.generateImportComments(directlyReferencedCtes);
+            
+            // Enable oneline for all CTEs and add import comments
+            this.printer['cteOneline'] = true;
+            this.printer['importComments'] = importComments;
+        }
+        
         const formattedSql = this.printer.print(token);
 
         return { formattedSql, params };
+    }
+
+    /**
+     * Finds CTEs that are directly referenced by the main query
+     * @param query The parsed SQL query
+     * @returns Array of CTE names directly referenced by main query
+     */
+    private findDirectlyReferencedCtes(query: SimpleSelectQuery): string[] {
+        const directlyReferenced: string[] = [];
+        
+        try {
+            // Use CTEDependencyTracer to analyze the query structure
+            const tracer = new CTEDependencyTracer({ silent: true });
+            const graph = tracer.buildGraph(query);
+            
+            // Find CTEs that are referenced by the main query
+            // These are typically the leaf nodes in the dependency graph
+            // or CTEs that are directly used in the final SELECT
+            for (const cteName of graph.leafNodes) {
+                directlyReferenced.push(cteName);
+            }
+            
+        } catch (error) {
+            console.warn('CTE dependency analysis failed:', error);
+        }
+        
+        return directlyReferenced;
+    }
+
+    /**
+     * Generates import comments for directly referenced CTEs
+     * @param cteNames Array of CTE names
+     * @returns Array of import comment strings
+     */
+    private generateImportComments(cteNames: string[]): string[] {
+        return cteNames.map(cteName => `/* import ${cteName}.cte.sql */`);
     }
 }

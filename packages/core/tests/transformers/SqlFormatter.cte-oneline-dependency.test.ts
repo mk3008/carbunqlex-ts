@@ -81,13 +81,14 @@ describe('SqlFormatter - CTE One-liner Dependency Feature', () => {
         });
         const result = formatter.format(query);
 
-        console.log('Current result (should change after implementation):', result.formattedSql);
+        console.log('New dependency-based result:', result.formattedSql);
         
-        // TODO: This test will fail until dependency analysis logic is implemented
-        // Currently shouldFormatCteOneline returns false for cteOnelineDependency
-        // For now, expect the current behavior (normal multiline formatting)
-        expect(result.formattedSql).toMatch(/user_stats\s+as\s+\(\s*\n/);
-        expect(result.formattedSql).toMatch(/product_stats\s+as\s+\(\s*\n/);
+        // With dependency analysis implementation, all CTEs should be oneline
+        // And import comments should be added
+        expect(result.formattedSql).toContain('user_stats as (select');
+        expect(result.formattedSql).toContain('product_stats as (select');
+        expect(result.formattedSql).toContain('/* import user_stats.cte.sql */');
+        expect(result.formattedSql).toContain('/* import product_stats.cte.sql */');
     });
 
     test('should not format dependent CTEs as oneline when cteOnelineDependency is true', () => {

@@ -44,6 +44,10 @@ export interface SqlPrinterOptions {
     cteOneline?: boolean;
     /** Whether to format CTE parts as one-liners based on dependencies (default: false) */
     cteOnelineDependency?: boolean;
+    /** Set of CTE names that should be formatted as oneline (computed externally) */
+    cteOnelineSet?: Set<string>;
+    /** Import comments to be added after WITH clause */
+    importComments?: string[];
 }
 
 /**
@@ -92,6 +96,12 @@ export class SqlPrinter {
     /** Whether to format CTE parts as one-liners based on dependencies (default: false) */
     cteOnelineDependency: boolean;
 
+    /** Set of CTE names that should be formatted as oneline based on dependency analysis */
+    private cteOnelineSet: Set<string>;
+
+    /** Import comments to be added after WITH clause */
+    private importComments: string[];
+
     private linePrinter: LinePrinter;
     private indentIncrementContainers: Set<SqlPrintTokenContainerType>;
 
@@ -113,6 +123,8 @@ export class SqlPrinter {
         this.strictCommentPlacement = options?.strictCommentPlacement ?? false;
         this.cteOneline = options?.cteOneline ?? false;
         this.cteOnelineDependency = options?.cteOnelineDependency ?? false;
+        this.cteOnelineSet = options?.cteOnelineSet ?? new Set();
+        this.importComments = options?.importComments ?? [];
         this.linePrinter = new LinePrinter(this.indentChar, this.indentSize, this.newline);
 
         // Initialize
@@ -172,8 +184,11 @@ export class SqlPrinter {
 
         const current = this.linePrinter.getCurrentLine();
 
-        // Handle different token types
-        if (token.type === SqlPrintTokenType.keyword) {
+        // Handle different token types        
+        if (token.containerType === SqlPrintTokenContainerType.WithClause && this.importComments.length > 0) {
+            this.handleWithClauseToken(token, level);
+            return; // Return early to avoid processing innerTokens
+        } else if (token.type === SqlPrintTokenType.keyword) {
             this.handleKeywordToken(token, level);
         } else if (token.type === SqlPrintTokenType.comma) {
             this.handleCommaToken(token, level, parentContainerType);
@@ -302,6 +317,29 @@ export class SqlPrinter {
     }
 
     /**
+     * Handle WITH clause with import comments
+     * @param token The WITH clause token
+     * @param level The indentation level
+     */
+    private handleWithClauseToken(token: SqlPrintToken, level: number): void {
+        // Process the WITH clause normally first
+        this.linePrinter.appendText(token.text);
+        
+        // Process inner tokens (CTEs)
+        if (token.innerTokens && token.innerTokens.length > 0) {
+            for (let i = 0; i < token.innerTokens.length; i++) {
+                this.appendToken(token.innerTokens[i], level, token.containerType);
+            }
+        }
+        
+        // Add import comments after the WITH clause
+        for (const comment of this.importComments) {
+            this.linePrinter.appendNewline(level);
+            this.linePrinter.appendText(`    ${comment}`);
+        }
+    }
+
+    /**
      * Determines if a CTE should be formatted as oneline based on dependency rules
      * @param token The CTE token to evaluate
      * @returns true if the CTE should be formatted as oneline, false otherwise
@@ -317,13 +355,29 @@ export class SqlPrinter {
             return false;
         }
 
-        // TODO: Implement dependency analysis logic
-        // For now, return false as default behavior
-        // This would need:
-        // 1. Extract the entire query context (not just the CTE token)
-        // 2. Build dependency graph using CTEDependencyTracer
-        // 3. Apply dependency-based rules (e.g., no direct dependencies = oneline)
+        // Extract CTE name from token structure
+        const cteName = this.extractCteNameFromToken(token);
+        if (cteName && this.cteOnelineSet.has(cteName)) {
+            return true;
+        }
         
         return false;
+    }
+
+    /**
+     * Extracts CTE name from a CommonTable token
+     * @param token The CommonTable token
+     * @returns The CTE name or null if not found
+     */
+    private extractCteNameFromToken(token: SqlPrintToken): string | null {
+        // CommonTable token structure: [aliasExpression, SPACE, 'as', SPACE, ...]
+        // We need to find the first token which should be the alias expression
+        if (token.innerTokens && token.innerTokens.length > 0) {
+            const aliasToken = token.innerTokens[0];
+            if (aliasToken && aliasToken.text) {
+                return aliasToken.text;
+            }
+        }
+        return null;
     }
 }
