@@ -1,5 +1,6 @@
 import { SqlPrintToken, SqlPrintTokenType, SqlPrintTokenContainerType } from "../models/SqlPrintToken";
 import { IndentCharOption, LinePrinter, NewlineOption } from "./LinePrinter";
+import { CTEDependencyTracer } from "./CTEDependencyTracer";
 
 /**
  * CommaBreakStyle determines how commas are placed in formatted SQL output.
@@ -41,6 +42,8 @@ export interface SqlPrinterOptions {
     indentIncrementContainerTypes?: SqlPrintTokenContainerType[];
     /** Whether to format CTE parts as one-liners (default: false) */
     cteOneline?: boolean;
+    /** Whether to format CTE parts as one-liners based on dependencies (default: false) */
+    cteOnelineDependency?: boolean;
 }
 
 /**
@@ -85,6 +88,9 @@ export class SqlPrinter {
 
     /** Whether to format CTE parts as one-liners (default: false) */
     cteOneline: boolean;
+    
+    /** Whether to format CTE parts as one-liners based on dependencies (default: false) */
+    cteOnelineDependency: boolean;
 
     private linePrinter: LinePrinter;
     private indentIncrementContainers: Set<SqlPrintTokenContainerType>;
@@ -106,6 +112,7 @@ export class SqlPrinter {
         this.exportComment = options?.exportComment ?? false;
         this.strictCommentPlacement = options?.strictCommentPlacement ?? false;
         this.cteOneline = options?.cteOneline ?? false;
+        this.cteOnelineDependency = options?.cteOnelineDependency ?? false;
         this.linePrinter = new LinePrinter(this.indentChar, this.indentSize, this.newline);
 
         // Initialize
@@ -176,7 +183,7 @@ export class SqlPrinter {
             this.handleJoinClauseToken(token, level);
         } else if (token.type === SqlPrintTokenType.comment) {
             this.handleCommentToken(token);
-        } else if (token.containerType === SqlPrintTokenContainerType.CommonTable && this.cteOneline) {
+        } else if (token.containerType === SqlPrintTokenContainerType.CommonTable && this.shouldFormatCteOneline(token)) {
             this.handleCteOnelineToken(token, level);
             return; // Return early to avoid processing innerTokens
         } else {
@@ -292,5 +299,31 @@ export class SqlPrinter {
         
         const onelineResult = onelinePrinter.print(token, level);
         this.linePrinter.appendText(onelineResult);
+    }
+
+    /**
+     * Determines if a CTE should be formatted as oneline based on dependency rules
+     * @param token The CTE token to evaluate
+     * @returns true if the CTE should be formatted as oneline, false otherwise
+     */
+    private shouldFormatCteOneline(token: SqlPrintToken): boolean {
+        // Original behavior - if cteOneline is enabled, format all CTEs as oneline
+        if (this.cteOneline) {
+            return true;
+        }
+
+        // New dependency-based behavior
+        if (!this.cteOnelineDependency) {
+            return false;
+        }
+
+        // TODO: Implement dependency analysis logic
+        // For now, return false as default behavior
+        // This would need:
+        // 1. Extract the entire query context (not just the CTE token)
+        // 2. Build dependency graph using CTEDependencyTracer
+        // 3. Apply dependency-based rules (e.g., no direct dependencies = oneline)
+        
+        return false;
     }
 }

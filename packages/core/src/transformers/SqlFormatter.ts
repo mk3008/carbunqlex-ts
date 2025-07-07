@@ -29,6 +29,7 @@ export class SqlFormatter {
         exportComment?: boolean; // Add comment export option
         strictCommentPlacement?: boolean; // Only export comments from clause-level keywords
         cteOneline?: boolean; // Format CTE parts as one-liners
+        cteOnelineDependency?: boolean; // Format CTE parts as one-liners based on dependencies
     } = {}) { // Default to 'sqlserver' if options is empty
 
         const presetConfig = options.preset ? PRESETS[options.preset] : undefined;
